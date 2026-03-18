@@ -2,6 +2,12 @@
 
 A modular animation & video production toolkit for littleturtle AI.
 
+## Demo
+
+https://github.com/fanchewei1019-littleturtle/turtle_video_kit/releases/download/v0.2.0/turtle_video_kit_showcase_v4.mp4
+
+> 33-second showcase: Shape Morphing · Easing Curves · Programmatic Creatures · Text Animations · Motion Effects · Transitions · BGM Synthesis
+
 ## Philosophy
 
 Not a one-click video maker — a **composable toolkit** where every element is independently tweakable.
