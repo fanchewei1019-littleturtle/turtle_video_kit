@@ -174,7 +174,7 @@ class Turtle(Layer):
 # ── Dog ───────────────────────────────────────────────────────────────────────
 
 class Dog(Layer):
-    """A simple programmatic dog."""
+    """A simple programmatic dog. Supports flip=True to face left."""
     z_index = 20
 
     FUR   = (200, 150, 100)
@@ -183,13 +183,16 @@ class Dog(Layer):
     EYE   = (40, 30, 20)
     WHITE = (240, 235, 225)
 
+    LOCAL_SIZE = 280  # local canvas size for rendering
+
     def __init__(self, x: float = 300, y: float = 400, scale: float = 1.0,
-                 wag: bool = True,
+                 wag: bool = True, flip: bool = False,
                  t_start: float = 0.0, t_end: Optional[float] = None):
         self.x = x
         self.y = y
         self.scale = scale
         self.wag = wag
+        self.flip = flip
         self.t_start = t_start
         self.t_end = t_end
 
@@ -201,75 +204,73 @@ class Dog(Layer):
             return False
         return True
 
-    def _draw(self, img, t):
+    def _draw_local(self, img, t, cx, cy):
+        """Draw dog centered at (cx, cy) on given image. Always faces right."""
         d = ImageDraw.Draw(img)
         s = self.scale
-        cx, cy = self.x, self.y
 
         # Body
-        d.ellipse([cx - 40 * s, cy - 20 * s, cx + 40 * s, cy + 25 * s],
-                  fill=self.FUR)
-
+        d.ellipse([cx - 40*s, cy - 20*s, cx + 40*s, cy + 25*s], fill=self.FUR)
         # Legs
-        for lx in [-25 * s, -10 * s, 10 * s, 25 * s]:
-            d.rectangle([cx + lx - 5 * s, cy + 20 * s, cx + lx + 5 * s, cy + 45 * s],
+        for lx in [-25*s, -10*s, 10*s, 25*s]:
+            d.rectangle([cx + lx - 5*s, cy + 20*s, cx + lx + 5*s, cy + 45*s],
                         fill=self.FUR)
-
         # Head
-        hx, hy = cx + 42 * s, cy - 15 * s
-        d.ellipse([hx - 22 * s, hy - 20 * s, hx + 22 * s, hy + 20 * s],
-                  fill=self.FUR)
-
-        # Floppy ears
-        for ex, ew in [(-1, -20 * s), (1, 12 * s)]:
-            d.ellipse([hx + ew - 12 * s, hy - 25 * s, hx + ew + 6 * s, hy + 8 * s],
+        hx, hy = cx + 42*s, cy - 15*s
+        d.ellipse([hx - 22*s, hy - 20*s, hx + 22*s, hy + 20*s], fill=self.FUR)
+        # Ears
+        for ew in [-20*s, 12*s]:
+            d.ellipse([hx + ew - 12*s, hy - 25*s, hx + ew + 6*s, hy + 8*s],
                       fill=self.DARK)
-
         # Snout
-        d.ellipse([hx + 8 * s, hy - 5 * s, hx + 22 * s, hy + 10 * s],
-                  fill=self.WHITE)
-        d.ellipse([hx + 12 * s, hy - 2 * s, hx + 18 * s, hy + 4 * s],
-                  fill=self.NOSE)
-
+        d.ellipse([hx + 8*s, hy - 5*s, hx + 22*s, hy + 10*s], fill=self.WHITE)
+        d.ellipse([hx + 12*s, hy - 2*s, hx + 18*s, hy + 4*s], fill=self.NOSE)
         # Eyes
-        for ey_offset in [-8 * s, 4 * s]:
-            d.ellipse([hx + ey_offset, hy - 12 * s,
-                       hx + ey_offset + 8 * s, hy - 4 * s],
-                      fill=self.EYE)
-
+        for ey_off in [-8*s, 4*s]:
+            d.ellipse([hx + ey_off, hy - 12*s,
+                       hx + ey_off + 8*s, hy - 4*s], fill=self.EYE)
         # Tail (wag)
         wag_angle = math.sin(t * 8) * 30 if self.wag else 0
-        tx = cx - 42 * s
-        ty = cy - 5 * s
-        tail_end_x = tx - 20 * s * math.cos(math.radians(wag_angle))
-        tail_end_y = ty - 20 * s - 15 * s * math.sin(math.radians(wag_angle))
-        pts = _bezier_points((tx, ty), (tx - 10 * s, ty - 10 * s),
+        tx, ty2 = cx - 42*s, cy - 5*s
+        tail_end_x = tx - 20*s * math.cos(math.radians(wag_angle))
+        tail_end_y = ty2 - 20*s - 15*s * math.sin(math.radians(wag_angle))
+        pts = _bezier_points((tx, ty2), (tx - 10*s, ty2 - 10*s),
                              (tail_end_x, tail_end_y))
         if len(pts) > 1:
-            d.line(pts, fill=self.FUR, width=max(1, int(8 * s)))
+            d.line(pts, fill=self.FUR, width=max(1, int(8*s)))
 
     def render_frame(self, frame_index, fps, canvas_size):
         t = frame_index / fps
+        ls = int(self.LOCAL_SIZE * max(self.scale, 0.5))
+        local = Image.new("RGBA", (ls, ls), (0, 0, 0, 0))
+        self._draw_local(local, t, ls // 2, ls // 2)
+        if self.flip:
+            local = local.transpose(Image.FLIP_LEFT_RIGHT)
         img = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-        self._draw(img, t)
+        paste_x = int(self.x) - ls // 2
+        paste_y = int(self.y) - ls // 2
+        img.paste(local, (paste_x, paste_y), local)
         return img
 
 
 # ── Bird ──────────────────────────────────────────────────────────────────────
 
 class Bird(Layer):
-    """A small flying bird — flaps its wings."""
+    """A small flying bird — flaps its wings. Supports flip=True to face left."""
     z_index = 20
+
+    LOCAL_SIZE = 120
 
     def __init__(self, x: float = 400, y: float = 200, scale: float = 1.0,
                  color: Tuple[int, int, int] = (80, 120, 200),
-                 flap_speed: float = 3.0,
+                 flap_speed: float = 3.0, flip: bool = False,
                  t_start: float = 0.0, t_end: Optional[float] = None):
         self.x = x
         self.y = y
         self.scale = scale
         self.color = color
         self.flap_speed = flap_speed
+        self.flip = flip
         self.t_start = t_start
         self.t_end = t_end
 
@@ -281,49 +282,48 @@ class Bird(Layer):
             return False
         return True
 
-    def _draw(self, img, t):
+    def _draw_local(self, img, t, cx, cy):
+        """Draw bird centered at (cx, cy). Always faces right."""
         d = ImageDraw.Draw(img)
         s = self.scale
-        cx, cy = self.x, self.y
-
         flap = math.sin(t * self.flap_speed * 2 * math.pi) * 18 * s
 
         # Wings
         for side in [-1, 1]:
             wx = cx + side * 25 * s
             wy = cy + flap * side * 0.5
-            pts = _bezier_points((cx, cy), (wx, wy - 10 * s), (wx + side * 10 * s, cy + 5 * s))
+            pts = _bezier_points((cx, cy), (wx, wy - 10*s),
+                                 (wx + side * 10*s, cy + 5*s))
             if len(pts) > 1:
-                d.line(pts, fill=self.color, width=max(1, int(10 * s)))
-
+                d.line(pts, fill=self.color, width=max(1, int(10*s)))
         # Body
-        d.ellipse([cx - 12 * s, cy - 8 * s, cx + 12 * s, cy + 8 * s],
-                  fill=self.color)
-
+        d.ellipse([cx - 12*s, cy - 8*s, cx + 12*s, cy + 8*s], fill=self.color)
         # Head
-        d.ellipse([cx + 8 * s, cy - 14 * s, cx + 22 * s, cy + 2 * s],
-                  fill=self.color)
-
+        d.ellipse([cx + 8*s, cy - 14*s, cx + 22*s, cy + 2*s], fill=self.color)
         # Beak
-        d.polygon([(cx + 22 * s, cy - 8 * s),
-                   (cx + 30 * s, cy - 5 * s),
-                   (cx + 22 * s, cy - 2 * s)],
-                  fill=(255, 180, 50))
-
+        d.polygon([(cx + 22*s, cy - 8*s),
+                   (cx + 30*s, cy - 5*s),
+                   (cx + 22*s, cy - 2*s)], fill=(255, 180, 50))
         # Eye
-        d.ellipse([cx + 14 * s, cy - 12 * s, cx + 18 * s, cy - 8 * s],
+        d.ellipse([cx + 14*s, cy - 12*s, cx + 18*s, cy - 8*s],
                   fill=(240, 240, 240))
-        d.ellipse([cx + 15 * s, cy - 11 * s, cx + 17 * s, cy - 9 * s],
+        d.ellipse([cx + 15*s, cy - 11*s, cx + 17*s, cy - 9*s],
                   fill=(30, 30, 30))
-
         # Tail
-        pts = _bezier_points((cx - 10 * s, cy), (cx - 20 * s, cy - 5 * s),
-                             (cx - 28 * s, cy + 5 * s))
+        pts = _bezier_points((cx - 10*s, cy), (cx - 20*s, cy - 5*s),
+                             (cx - 28*s, cy + 5*s))
         if len(pts) > 1:
-            d.line(pts, fill=self.color, width=max(1, int(6 * s)))
+            d.line(pts, fill=self.color, width=max(1, int(6*s)))
 
     def render_frame(self, frame_index, fps, canvas_size):
         t = frame_index / fps
+        ls = int(self.LOCAL_SIZE * max(self.scale, 0.5))
+        local = Image.new("RGBA", (ls, ls), (0, 0, 0, 0))
+        self._draw_local(local, t, ls // 2, ls // 2)
+        if self.flip:
+            local = local.transpose(Image.FLIP_LEFT_RIGHT)
         img = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-        self._draw(img, t)
+        paste_x = int(self.x) - ls // 2
+        paste_y = int(self.y) - ls // 2
+        img.paste(local, (paste_x, paste_y), local)
         return img

@@ -2,14 +2,15 @@ __pycache__/
 *.pyc
 *.pyo
 .env
-*.mp4
-*.mp3
-*.wav
 output/
 temp/
-test_output/
+# test_output: keep final showcase, ignore intermediate files
+test_output/showcase_*.mp4
+test_output/preview_*.jpg
+assets/bgm_cache/
 assets/openmoji/*.png
 assets/creatures/*.png
+assets/.cache/
 *.egg-info/
 dist/
 build/
